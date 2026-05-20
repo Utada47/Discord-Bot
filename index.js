@@ -19,7 +19,10 @@ const {
 // ======================================================
 
 const client = new Client({
-    intents: [GatewayIntentBits.Guilds]
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers
+    ]
 });
 
 // ======================================================
@@ -71,7 +74,7 @@ const ROLES = {
 };
 
 // ======================================================
-// HELPER
+// GET ROLE COUNT
 // ======================================================
 
 function getRoleCount(guild, roleId) {
@@ -184,13 +187,13 @@ client.once(Events.ClientReady, async () => {
                 msg.author.id === client.user.id &&
                 msg.embeds.length > 0 &&
                 msg.embeds[0]?.title ===
-                '🎓 Welcome to Study Community'
+                '🎓 Welcome to CCA FIKOM UMI 2026'
         );
 
         if (!existingInfo) {
 
             const welcomeEmbed = new EmbedBuilder()
-                .setTitle('🎓 Welcome to Study Community')
+                .setTitle('🎓 Welcome to CCA FIKOM UMI 2026')
                 .setDescription(
                     'Server ini dibuat untuk belajar bersama,\n' +
                     'sharing materi, dan mengadakan sesi belajar.'
@@ -203,6 +206,7 @@ client.once(Events.ClientReady, async () => {
                     '• Hormati member lain\n' +
                     '• Dilarang spam\n' +
                     '• Dilarang toxic\n' +
+                    '• Dilarang deketin rima\n' +
                     '• Gunakan channel sesuai topik'
                 )
                 .setColor('#E67E22');
@@ -214,7 +218,7 @@ client.once(Events.ClientReady, async () => {
                     '2. Klik tombol Mengajar\n' +
                     '3. Pilih materi\n' +
                     '4. Isi form\n' +
-                    '5. Announcement akan otomatis dibuat'
+                    '5. Announcement otomatis dibuat'
                 )
                 .setColor('#27AE60');
 
@@ -253,6 +257,8 @@ client.once(Events.ClientReady, async () => {
 
         if (!existingRoleMessage) {
 
+            // BUTTON STUDENT
+
             const studentButton =
                 new ButtonBuilder()
                     .setCustomId('become_student')
@@ -263,6 +269,8 @@ client.once(Events.ClientReady, async () => {
             const buttonRow =
                 new ActionRowBuilder()
                     .addComponents(studentButton);
+
+            // DROPDOWN ROLE
 
             const select =
                 new StringSelectMenuBuilder()
@@ -318,6 +326,8 @@ client.once(Events.ClientReady, async () => {
             const roleRow =
                 new ActionRowBuilder()
                     .addComponents(select);
+
+            // TRACKER
 
             const guild =
                 client.guilds.cache.first();
@@ -424,6 +434,10 @@ client.on(
     Events.InteractionCreate,
     async interaction => {
 
+        // ======================================================
+        // BECOME STUDENT
+        // ======================================================
+
         if (
             interaction.isButton() &&
             interaction.customId ===
@@ -457,6 +471,10 @@ client.on(
                 ephemeral: true
             });
         }
+
+        // ======================================================
+        // SELF ROLE
+        // ======================================================
 
         if (
             interaction.isStringSelectMenu() &&
@@ -500,6 +518,10 @@ client.on(
                 ephemeral: true
             });
         }
+
+        // ======================================================
+        // BUTTON MENGAJAR
+        // ======================================================
 
         if (
             interaction.isButton() &&
@@ -575,6 +597,10 @@ client.on(
             });
         }
 
+        // ======================================================
+        // DROPDOWN MATERI
+        // ======================================================
+
         if (
             interaction.isStringSelectMenu() &&
             interaction.customId ===
@@ -634,6 +660,10 @@ client.on(
                 modal
             );
         }
+
+        // ======================================================
+        // SUBMIT FORM
+        // ======================================================
 
         if (
             interaction.isModalSubmit() &&
