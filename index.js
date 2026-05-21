@@ -21,7 +21,11 @@ const {
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildModeration,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
     ]
 });
 
@@ -36,6 +40,7 @@ const INFORMATION_CHANNEL_ID = '1506668423852195880';
 const ROLE_CHANNEL_ID = '1506660161719242782';
 const FORM_CHANNEL_ID = '1506277756860629155';
 const ANNOUNCEMENT_CHANNEL_ID = '1506280638678962319';
+const AUDIT_LOG_CHANNEL_ID = '1506897093082615818';
 
 // ROLE
 const STUDY_ROLE_ID = '1506276352360190075';
@@ -157,6 +162,268 @@ async function updateTracker() {
         );
     }
 }
+
+// ======================================================
+// Audit Log
+// ====================================================== 
+
+async function sendAuditLog(embed) {
+
+    try {
+
+        const channel =
+            await client.channels.fetch(
+                AUDIT_LOG_CHANNEL_ID
+            );
+
+        if (!channel) return;
+
+        await channel.send({
+            embeds: [embed]
+        });
+
+    } catch (err) {
+
+        console.error(
+            'Audit log error:',
+            err
+        );
+    }
+}
+
+client.on(
+    Events.GuildMemberUpdate,
+    async () => {
+
+        await updateTracker();
+    }
+);
+
+client.on(
+    Events.GuildMemberAdd,
+    async member => {
+
+        const embed =
+            new EmbedBuilder()
+                .setTitle('📥 Member Join')
+                .setDescription(
+                    `👤 ${member.user.tag}\n🆔 ${member.id}`
+                )
+                .setColor('#2ECC71')
+                .setTimestamp();
+
+        await sendAuditLog(embed);
+    }
+);
+
+client.on(
+    Events.GuildMemberRemove,
+    async member => {
+
+        const embed =
+            new EmbedBuilder()
+                .setTitle('📤 Member Leave')
+                .setDescription(
+                    `👤 ${member.user.tag}\n🆔 ${member.id}`
+                )
+                .setColor('#E74C3C')
+                .setTimestamp();
+
+        await sendAuditLog(embed);
+    }
+);
+
+client.on(
+    Events.VoiceStateUpdate,
+    async (oldState, newState) => {
+
+        const member = newState.member;
+
+        if (
+            !oldState.channel &&
+            newState.channel
+        ) {
+
+            const embed =
+                new EmbedBuilder()
+                    .setTitle('🔊 Voice Join')
+                    .setDescription(
+                        `👤 ${member.user.tag}\n📥 ${newState.channel.name}`
+                    )
+                    .setColor('#2ECC71')
+                    .setTimestamp();
+
+            return sendAuditLog(embed);
+        }
+
+        if (
+            oldState.channel &&
+            !newState.channel
+        ) {
+
+            const embed =
+                new EmbedBuilder()
+                    .setTitle('🔇 Voice Leave')
+                    .setDescription(
+                        `👤 ${member.user.tag}\n📤 ${oldState.channel.name}`
+                    )
+                    .setColor('#E67E22')
+                    .setTimestamp();
+
+            return sendAuditLog(embed);
+        }
+
+        if (
+            oldState.channelId !==
+            newState.channelId
+        ) {
+
+            const embed =
+                new EmbedBuilder()
+                    .setTitle('🔁 Voice Move')
+                    .setDescription(
+                        `👤 ${member.user.tag}\n` +
+                        `📤 ${oldState.channel?.name}\n` +
+                        `📥 ${newState.channel?.name}`
+                    )
+                    .setColor('#3498DB')
+                    .setTimestamp();
+
+            return sendAuditLog(embed);
+        }
+    }
+);
+
+client.on(
+    Events.MessageDelete,
+    async message => {
+
+        if (!message.guild) return;
+        if (message.author?.bot) return;
+
+        const embed =
+            new EmbedBuilder()
+                .setTitle('🗑️ Message Deleted')
+                .setDescription(
+                    `👤 ${message.author.tag}\n` +
+                    `📍 ${message.channel}\n\n` +
+                    `💬 ${message.content || 'No text'}`
+                )
+                .setColor('#E74C3C')
+                .setTimestamp();
+
+        await sendAuditLog(embed);
+    }
+);
+
+client.on(
+    Events.MessageUpdate,
+    async (oldMessage, newMessage) => {
+
+        if (!oldMessage.guild) return;
+        if (oldMessage.author?.bot) return;
+
+        if (
+            oldMessage.content ===
+            newMessage.content
+        ) return;
+
+        const embed =
+            new EmbedBuilder()
+                .setTitle('✏️ Message Edited')
+                .setDescription(
+                    `👤 ${oldMessage.author.tag}\n` +
+                    `📍 ${oldMessage.channel}\n\n` +
+                    `📄 Before:\n${oldMessage.content}\n\n` +
+                    `📄 After:\n${newMessage.content}`
+                )
+                .setColor('#F1C40F')
+                .setTimestamp();
+
+        await sendAuditLog(embed);
+    }
+);
+
+client.on(
+    Events.GuildMemberUpdate,
+    async (oldMember, newMember) => {
+
+        const oldRoles =
+            oldMember.roles.cache;
+
+        const newRoles =
+            newMember.roles.cache;
+
+        const addedRoles =
+            newRoles.filter(
+                role => !oldRoles.has(role.id)
+            );
+
+        const removedRoles =
+            oldRoles.filter(
+                role => !newRoles.has(role.id)
+            );
+
+        if (addedRoles.size > 0) {
+
+            addedRoles.forEach(async role => {
+
+                const embed =
+                    new EmbedBuilder()
+                        .setTitle('➕ Role Added')
+                        .setDescription(
+                            `👤 ${newMember.user.tag}\n🎭 ${role.name}`
+                        )
+                        .setColor('#2ECC71')
+                        .setTimestamp();
+
+                await sendAuditLog(embed);
+            });
+        }
+
+        if (removedRoles.size > 0) {
+
+            removedRoles.forEach(async role => {
+
+                const embed =
+                    new EmbedBuilder()
+                        .setTitle('➖ Role Removed')
+                        .setDescription(
+                            `👤 ${newMember.user.tag}\n🎭 ${role.name}`
+                        )
+                        .setColor('#E74C3C')
+                        .setTimestamp();
+
+                await sendAuditLog(embed);
+            });
+        }
+    }
+);
+
+client.on(
+    Events.GuildMemberUpdate,
+    async (oldMember, newMember) => {
+
+        if (
+            oldMember.nickname !==
+            newMember.nickname
+        ) {
+
+            const embed =
+                new EmbedBuilder()
+                    .setTitle('✏️ Nickname Changed')
+                    .setDescription(
+                        `👤 ${newMember.user.tag}\n` +
+                        `📄 Before: ${oldMember.nickname || 'None'}\n` +
+                        `📄 After: ${newMember.nickname || 'None'}`
+                    )
+                    .setColor('#3498DB')
+                    .setTimestamp();
+
+            await sendAuditLog(embed);
+        }
+    }
+);
 
 // ======================================================
 // READY
