@@ -237,7 +237,12 @@ client.on(
     Events.VoiceStateUpdate,
     async (oldState, newState) => {
 
-        const member = newState.member;
+        const member =
+            newState.member || oldState.member;
+
+        // =========================================
+        // JOIN VC
+        // =========================================
 
         if (
             !oldState.channel &&
@@ -248,7 +253,8 @@ client.on(
                 new EmbedBuilder()
                     .setTitle('🔊 Voice Join')
                     .setDescription(
-                        `👤 ${member.user.tag}\n📥 ${newState.channel.name}`
+                        `👤 User: ${member.user.tag}\n` +
+                        `📥 Channel: ${newState.channel.name}`
                     )
                     .setColor('#2ECC71')
                     .setTimestamp();
@@ -256,35 +262,135 @@ client.on(
             return sendAuditLog(embed);
         }
 
+        // =========================================
+        // LEAVE / DISCONNECT
+        // =========================================
+
         if (
             oldState.channel &&
             !newState.channel
         ) {
 
+            let moderator = null;
+
+            try {
+
+                // tunggu audit log discord update
+                await new Promise(resolve =>
+                    setTimeout(resolve, 3000)
+                );
+
+                const fetchedLogs =
+                    await oldState.guild.fetchAuditLogs({
+                        limit: 20
+                    });
+
+                const disconnectLog =
+                    fetchedLogs.entries.find(log =>
+
+                        log.action === 27 &&
+                        log.target?.id === member.id &&
+                        Date.now() - log.createdTimestamp < 15000
+                    );
+
+                if (disconnectLog) {
+
+                    moderator =
+                        disconnectLog.executor;
+                }
+
+            } catch (err) {
+
+                console.error(err);
+            }
+
             const embed =
                 new EmbedBuilder()
-                    .setTitle('🔇 Voice Leave')
-                    .setDescription(
-                        `👤 ${member.user.tag}\n📤 ${oldState.channel.name}`
+                    .setTitle(
+                        moderator
+                            ? '⛔ Force Disconnect'
+                            : '🔇 Voice Leave'
                     )
-                    .setColor('#E67E22')
+                    .setDescription(
+                        `👤 Victim: ${member.user.tag}\n` +
+                        `📤 Channel: ${oldState.channel.name}\n` +
+
+                        (
+                            moderator
+                                ? `👮 Moderator: ${moderator.tag}`
+                                : ''
+                        )
+                    )
+                    .setColor(
+                        moderator
+                            ? '#E74C3C'
+                            : '#E67E22'
+                    )
                     .setTimestamp();
 
             return sendAuditLog(embed);
         }
 
+        // =========================================
+        // MOVE VC
+        // =========================================
+
         if (
+            oldState.channelId &&
+            newState.channelId &&
             oldState.channelId !==
             newState.channelId
         ) {
 
+            let moderator = null;
+
+            try {
+
+                await new Promise(resolve =>
+                    setTimeout(resolve, 3000)
+                );
+
+                const fetchedLogs =
+                    await newState.guild.fetchAuditLogs({
+                        limit: 20
+                    });
+
+                const moveLog =
+                    fetchedLogs.entries.find(log =>
+
+                        log.action === 26 &&
+                        log.target?.id === member.id &&
+                        Date.now() - log.createdTimestamp < 15000
+                    );
+
+                if (moveLog) {
+
+                    moderator =
+                        moveLog.executor;
+                }
+
+            } catch (err) {
+
+                console.error(err);
+            }
+
             const embed =
                 new EmbedBuilder()
-                    .setTitle('🔁 Voice Move')
+                    .setTitle(
+                        moderator
+                            ? '🔁 Force Move'
+                            : '🔁 Voice Move'
+                    )
                     .setDescription(
-                        `👤 ${member.user.tag}\n` +
-                        `📤 ${oldState.channel?.name}\n` +
-                        `📥 ${newState.channel?.name}`
+                        `👤 Victim: ${member.user.tag}\n` +
+                        `📤 From: ${oldState.channel.name}\n` +
+                        `📥 To: ${newState.channel.name}\n` +
+
+                        (
+                            moderator
+                                ? `👮 Moderator: ${moderator.tag}`
+                                : ''
+                        )
                     )
                     .setColor('#3498DB')
                     .setTimestamp();
@@ -473,7 +579,7 @@ client.once(Events.ClientReady, async () => {
                     '• Hormati member lain\n' +
                     '• Dilarang spam\n' +
                     '• Dilarang toxic\n' +
-                    '• Dilarang deketin rima\n' +
+                    '• Dilarang cepu\n' +
                     '• Gunakan channel sesuai topik'
                 )
                 .setColor('#E67E22');
@@ -745,44 +851,37 @@ client.on(
 
         if (
             interaction.isStringSelectMenu() &&
-            interaction.customId ===
-            'study_role'
+            interaction.customId === 'study_role'
         ) {
 
-            const member =
-                interaction.member;
+            await interaction.deferReply({
+                flags: 64
+            });
+
+            const member = interaction.member;
 
             for (const selected of interaction.values) {
 
-                const roleId =
-                    ROLES[selected];
+                const roleId = ROLES[selected];
 
                 if (!roleId) continue;
 
                 if (
-                    member.roles.cache.has(
-                        roleId
-                    )
+                    member.roles.cache.has(roleId)
                 ) {
 
-                    await member.roles.remove(
-                        roleId
-                    );
+                    await member.roles.remove(roleId);
 
                 } else {
 
-                    await member.roles.add(
-                        roleId
-                    );
+                    await member.roles.add(roleId);
                 }
             }
 
             await updateTracker();
 
-            return interaction.reply({
-                content:
-                    '✅ Role berhasil diperbarui.',
-                ephemeral: true
+            await interaction.editReply({
+                content: '✅ Role berhasil diperbarui.'
             });
         }
 
