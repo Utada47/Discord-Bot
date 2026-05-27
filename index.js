@@ -55,9 +55,14 @@ let TRACKER_MESSAGE_ID = null;
 // WATCH LIST
 // ======================================================
 
-const WATCHED_USERS = [
+const WATCHED_USERS = new Set([
     '1369161141586104381'
-];
+]);
+
+function isWatched(userId) {
+
+    return WATCHED_USERS.has(userId);
+}
 
 // user yang akan di tag
 const OWNER_ID = '467731605004484608';
@@ -213,7 +218,15 @@ function isWatched(userId) {
 
 async function sendWatchedAlert(userId, action) {
 
-    if (!isWatched(userId)) return;
+    console.log('WATCH CHECK:', userId);
+
+    if (!isWatched(userId)) {
+
+        console.log('NOT WATCHED');
+        return;
+    }
+
+    console.log('WATCHED USER DETECTED');
 
     try {
 
