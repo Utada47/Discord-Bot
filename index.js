@@ -224,10 +224,14 @@ async function sendWatchedAlert(userId, action) {
 
         if (!channel) return;
 
+        const user =
+            await client.users.fetch(userId);
+
         await channel.send({
             content:
-                `<@${OWNER_ID}> 🚨 Watched user detected!\n` +
-                `👤 <@${userId}>\n` +
+                `<@${OWNER_ID}> 🚨 WATCHED USER DETECTED\n\n` +
+                `👤 User: ${user.tag}\n` +
+                `🆔 ID: ${user.id}\n` +
                 `⚠️ Action: ${action}`
         });
 
@@ -260,11 +264,6 @@ client.on(
 
         await sendAuditLog(embed);
 
-        await sendWatchedAlert(
-            member.id,
-            'Member Join'
-        );
-
     }
 );
 
@@ -282,11 +281,6 @@ client.on(
                 .setTimestamp();
 
         await sendAuditLog(embed);
-
-        await sendWatchedAlert(
-            member.id,
-            'Member Leave'
-        );
 
     }
 );
@@ -317,7 +311,14 @@ client.on(
                     .setColor('#2ECC71')
                     .setTimestamp();
 
-            return sendAuditLog(embed);
+            await sendAuditLog(embed);
+
+            await sendWatchedAlert(
+                member.id,
+                `Voice Join (${newState.channel.name})`
+            );
+
+            return;
         }
 
         // =========================================
@@ -386,7 +387,16 @@ client.on(
                     )
                     .setTimestamp();
 
-            return sendAuditLog(embed);
+            await sendAuditLog(embed);
+
+            await sendWatchedAlert(
+                member.id,
+                moderator
+                    ? `Force Disconnect by ${moderator.tag}`
+                    : `Voice Leave (${oldState.channel.name})`
+            );
+
+            return;
         }
 
         // =========================================
@@ -453,7 +463,16 @@ client.on(
                     .setColor('#3498DB')
                     .setTimestamp();
 
-            return sendAuditLog(embed);
+            await sendAuditLog(embed);
+
+            await sendWatchedAlert(
+                member.id,
+                moderator
+                    ? `Force Move by ${moderator.tag}`
+                    : `Voice Move`
+            );
+
+            return;
         }
     }
 );
