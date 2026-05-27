@@ -52,6 +52,17 @@ const STUDY_ROLE_ID = '1506276352360190075';
 let TRACKER_MESSAGE_ID = null;
 
 // ======================================================
+// WATCH LIST
+// ======================================================
+
+const WATCHED_USERS = [
+    '1369161141586104381'
+];
+
+// user yang akan di tag
+const OWNER_ID = '467731605004484608';
+
+// ======================================================
 // ROLE MAP
 // ======================================================
 
@@ -191,6 +202,41 @@ async function sendAuditLog(embed) {
     }
 }
 
+// ======================================================
+// WATCH CHECK
+// ======================================================
+
+function isWatched(userId) {
+
+    return WATCHED_USERS.includes(userId);
+}
+
+async function sendWatchedAlert(userId, action) {
+
+    if (!isWatched(userId)) return;
+
+    try {
+
+        const channel =
+            await client.channels.fetch(
+                AUDIT_LOG_CHANNEL_ID
+            );
+
+        if (!channel) return;
+
+        await channel.send({
+            content:
+                `<@${OWNER_ID}> 🚨 Watched user detected!\n` +
+                `👤 <@${userId}>\n` +
+                `⚠️ Action: ${action}`
+        });
+
+    } catch (err) {
+
+        console.error(err);
+    }
+}
+
 client.on(
     Events.GuildMemberUpdate,
     async () => {
@@ -213,6 +259,12 @@ client.on(
                 .setTimestamp();
 
         await sendAuditLog(embed);
+
+        await sendWatchedAlert(
+            member.id,
+            'Member Join'
+        );
+
     }
 );
 
@@ -230,6 +282,12 @@ client.on(
                 .setTimestamp();
 
         await sendAuditLog(embed);
+
+        await sendWatchedAlert(
+            member.id,
+            'Member Leave'
+        );
+
     }
 );
 
