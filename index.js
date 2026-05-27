@@ -213,7 +213,7 @@ async function sendAuditLog(embed) {
 
 function isWatched(userId) {
 
-    return WATCHED_USERS.includes(userId);
+    return WATCHED_USERS.has(userId);
 }
 
 async function sendWatchedAlert(userId, action) {
